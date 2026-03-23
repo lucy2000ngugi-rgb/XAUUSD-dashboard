@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -181,7 +180,7 @@
     }
     .tiny{
       font-size:12px;
-      color:var(--muted)
+      color:var(--muted);
     }
     @media (max-width:640px){
       h1{font-size:28px}
@@ -195,7 +194,7 @@
       <h1>XAUUSD Signal Hub</h1>
       <div class="sub">
         Mobile-first XAUUSD smart-money panel using 1H bias, 15M structure, and 5M execution.
-        Includes A+ setup slot, entries, stop loss, targets, confidence, and 60-second auto-refresh.
+        Includes A+ setup slot, entries, stop loss, targets, confidence, and auto-refresh.
       </div>
 
       <div class="status" id="statusText">Ready</div>
@@ -222,10 +221,6 @@
           <div class="value" id="signalCount">0</div>
         </div>
         <div class="stat">
-          <div class="label">Alert Mode</div>
-          <div class="value" id="alertMode">Browser</div>
-        </div>
-        <div class="stat">
           <div class="label">Next Refresh</div>
           <div class="value" id="countdown">60s</div>
         </div>
@@ -247,7 +242,6 @@
           <button id="saveBtn">Save API Key</button>
           <button id="refreshBtn">Refresh Signals</button>
         </div>
-        <button id="notifyBtn">Enable Browser Alerts</button>
       </div>
     </div>
 
@@ -271,14 +265,12 @@
     const aPlusSetupEl = document.getElementById('aPlusSetup');
     const bestSetupEl = document.getElementById('bestSetup');
     const signalCountEl = document.getElementById('signalCount');
-    const alertModeEl = document.getElementById('alertMode');
     const countdownEl = document.getElementById('countdown');
     const signalsEl = document.getElementById('signals');
 
     let autoTimer = null;
     let countdownTimer = null;
     let secondsLeft = 60;
-    let lastSignalFingerprint = '';
 
     apiKeyInput.value = localStorage.getItem('xau_api_key') || '';
 
@@ -633,24 +625,6 @@
       });
     }
 
-    function maybeNotify(primary){
-      const fingerprint = JSON.stringify({
-        d: primary.direction,
-        s: primary.setup,
-        e: primary.entry ? primary.entry.toFixed(2) : null,
-        c: primary.confidence
-      });
-
-      if(fingerprint !== lastSignalFingerprint && primary.direction !== 'WAIT'){
-        lastSignalFingerprint = fingerprint;
-        if(Notification.permission === 'granted'){
-          new Notification(`XAUUSD ${primary.direction}`, {
-            body: `${primary.setup} | Entry ${formatPrice(primary.entry)} | SL ${formatPrice(primary.sl)} | TP1 ${formatPrice(primary.tp1)}`
-          });
-        }
-      }
-    }
-
     async function fetchSignals(){
       try{
         setStatus('Loading candles...');
@@ -683,7 +657,6 @@
 
         const allSignals = aPlusCandidate(primary, other);
         renderSignals(allSignals);
-        maybeNotify(primary);
 
         setStatus(`Updated ${new Date().toLocaleTimeString()}`);
       } catch(err){
@@ -729,16 +702,6 @@
 
     document.getElementById('saveBtn').addEventListener('click', saveSettings);
     document.getElementById('refreshBtn').addEventListener('click', fetchSignals);
-
-    document.getElementById('notifyBtn').addEventListener('click', async () => {
-      if(!('Notification' in window)){
-        alert('This browser does not support notifications.');
-        return;
-      }
-      const perm = await Notification.requestPermission();
-      alertModeEl.textContent = perm === 'granted' ? 'Browser On' : 'Off';
-      setStatus(perm === 'granted' ? 'Browser alerts enabled' : 'Alerts not enabled');
-    });
 
     refreshSelect.addEventListener('change', () => {
       localStorage.setItem('xau_refresh_ms', refreshSelect.value);
