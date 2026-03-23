@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -84,4 +85,571 @@
       width:100%;
       border-radius:18px;
       border:1px solid var(--line);
-      background:#0b153
+      background:#0b1530;
+      color:var(--text);
+      padding:16px;
+      font-size:16px;
+    }
+    button{
+      font-weight:700;
+      background:linear-gradient(180deg, #29427d, #1d2f5a);
+    }
+    button:active{transform:scale(.99)}
+    .row{
+      display:grid;
+      gap:12px;
+      grid-template-columns:1fr 1fr;
+    }
+    .section{
+      margin-top:18px;
+    }
+    .section h2{
+      font-size:20px;
+      margin:0 0 12px;
+    }
+    .signals{
+      display:grid;
+      gap:14px;
+    }
+    .card{
+      border:1px solid var(--line);
+      border-radius:22px;
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      padding:16px;
+    }
+    .tag{
+      display:inline-block;
+      padding:8px 12px;
+      border-radius:999px;
+      font-weight:800;
+      font-size:13px;
+      letter-spacing:.3px;
+      margin-bottom:10px;
+    }
+    .buy{background:rgba(24,195,126,.14); color:#8df0c2; border:1px solid rgba(24,195,126,.35)}
+    .sell{background:rgba(255,93,108,.14); color:#ffadb6; border:1px solid rgba(255,93,108,.35)}
+    .wait{background:rgba(244,183,64,.14); color:#ffd98a; border:1px solid rgba(244,183,64,.35)}
+    .title{
+      font-size:20px;
+      font-weight:800;
+      margin:0 0 10px;
+    }
+    .meta{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+      margin-top:12px;
+    }
+    .mini{
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:12px;
+    }
+    .mini .k{font-size:12px;color:var(--muted);margin-bottom:5px}
+    .mini .v{font-size:16px;font-weight:700}
+    .reason{
+      color:#d9e2ff;
+      line-height:1.5;
+      font-size:14px;
+    }
+    .foot{
+      color:var(--muted);
+      font-size:13px;
+      margin-top:14px;
+      text-align:center;
+    }
+    .tiny{
+      font-size:12px;color:var(--muted)
+    }
+    @media (max-width:640px){
+      h1{font-size:28px}
+      .grid,.row,.meta{grid-template-columns:1fr 1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>XAUUSD Signal Hub</h1>
+      <div class="sub">
+        Mobile-first XAUUSD smart-money panel using 1H bias, 15M structure, and 5M execution.
+        Includes entries, stop loss, targets, confidence, and 60-second auto-refresh.
+      </div>
+
+      <div class="status" id="statusText">Ready</div>
+
+      <div class="grid">
+        <div class="stat">
+          <div class="label">Live Price</div>
+          <div class="value" id="livePrice">—</div>
+        </div>
+        <div class="stat">
+          <div class="label">1H Bias</div>
+          <div class="value" id="bias1h">—</div>
+        </div>
+        <div class="stat">
+          <div class="label">Best Setup</div>
+          <div class="value" id="bestSetup">—</div>
+        </div>
+        <div class="stat">
+          <div class="label">Signal Count</div>
+          <div class="value" id="signalCount">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Alert Mode</div>
+          <div class="value" id="alertMode">Browser</div>
+        </div>
+        <div class="stat">
+          <div class="label">Next Refresh</div>
+          <div class="value" id="countdown">60s</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <input id="apiKey" type="password" placeholder="Paste your Twelve Data API key" />
+        <div class="row">
+          <select id="symbol">
+            <option value="XAU/USD">XAU/USD</option>
+          </select>
+          <select id="refreshSelect">
+            <option value="30000">30 sec</option>
+            <option value="60000" selected>60 sec</option>
+            <option value="120000">120 sec</option>
+          </select>
+        </div>
+        <div class="row">
+          <button id="saveBtn">Save API Key</button>
+          <button id="refreshBtn">Refresh Signals</button>
+        </div>
+        <button id="notifyBtn">Enable Browser Alerts</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Signal Cards</h2>
+      <div class="signals" id="signals"></div>
+    </div>
+
+    <div class="foot">
+      Phone-ready dashboard for XAUUSD • 1H bias / 15M structure / 5M execution
+    </div>
+  </div>
+
+  <script>
+    const apiKeyInput = document.getElementById('apiKey');
+    const symbolInput = document.getElementById('symbol');
+    const refreshSelect = document.getElementById('refreshSelect');
+    const statusText = document.getElementById('statusText');
+    const livePriceEl = document.getElementById('livePrice');
+    const bias1hEl = document.getElementById('bias1h');
+    const bestSetupEl = document.getElementById('bestSetup');
+    const signalCountEl = document.getElementById('signalCount');
+    const alertModeEl = document.getElementById('alertMode');
+    const countdownEl = document.getElementById('countdown');
+    const signalsEl = document.getElementById('signals');
+
+    let autoTimer = null;
+    let countdownTimer = null;
+    let secondsLeft = 60;
+    let lastSignalFingerprint = '';
+
+    apiKeyInput.value = localStorage.getItem('xau_api_key') || '';
+
+    function setStatus(msg){ statusText.textContent = msg; }
+
+    function saveSettings(){
+      localStorage.setItem('xau_api_key', apiKeyInput.value.trim());
+      localStorage.setItem('xau_refresh_ms', refreshSelect.value);
+      setStatus('Saved');
+      startAutoRefresh();
+    }
+
+    function loadSettings(){
+      const savedRefresh = localStorage.getItem('xau_refresh_ms');
+      if(savedRefresh) refreshSelect.value = savedRefresh;
+    }
+
+    function ema(values, period){
+      const k = 2 / (period + 1);
+      let result = values[0];
+      for(let i=1;i<values.length;i++){
+        result = values[i] * k + result * (1 - k);
+      }
+      return result;
+    }
+
+    function num(v){
+      return Number.parseFloat(v);
+    }
+
+    function formatPrice(v){
+      if(!isFinite(v)) return '—';
+      return v.toFixed(2);
+    }
+
+    function averageRange(candles, n=10){
+      const slice = candles.slice(0, n);
+      if(!slice.length) return 0;
+      const total = slice.reduce((sum, c) => sum + (num(c.high) - num(c.low)), 0);
+      return total / slice.length;
+    }
+
+    async function fetchTF(interval){
+      const key = apiKeyInput.value.trim();
+      const symbol = symbolInput.value;
+      if(!key) throw new Error('Missing API key');
+      const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${interval}&outputsize=120&timezone=UTC&apikey=${encodeURIComponent(key)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if(data.status === 'error') throw new Error(data.message || 'API error');
+      if(!data.values || !Array.isArray(data.values)) throw new Error('No candle data returned');
+      return data.values;
+    }
+
+    function analyzeBias(candles){
+      const closes = candles.slice(0, 50).map(c => num(c.close)).reverse();
+      const e9 = ema(closes.slice(-25), 9);
+      const e21 = ema(closes.slice(-40), 21);
+      const last = closes[closes.length - 1];
+      if(last > e9 && e9 > e21) return 'Bullish';
+      if(last < e9 && e9 < e21) return 'Bearish';
+      return 'Neutral';
+    }
+
+    function detectSweep(candles){
+      const recent = candles.slice(0, 6);
+      if(recent.length < 6) return 'None';
+      const latest = recent[0];
+      const prevLows = recent.slice(1).map(c => num(c.low));
+      const prevHighs = recent.slice(1).map(c => num(c.high));
+      const minPrev = Math.min(...prevLows);
+      const maxPrev = Math.max(...prevHighs);
+
+      if(num(latest.low) < minPrev && num(latest.close) > num(latest.open)) return 'Sell-side taken';
+      if(num(latest.high) > maxPrev && num(latest.close) < num(latest.open)) return 'Buy-side taken';
+      return 'None';
+    }
+
+    function detectMSS(candles){
+      const c0 = candles[0], c1 = candles[1], c2 = candles[2], c3 = candles[3];
+      if(!c3) return 'None';
+      const high1 = Math.max(num(c1.high), num(c2.high), num(c3.high));
+      const low1 = Math.min(num(c1.low), num(c2.low), num(c3.low));
+
+      if(num(c0.close) > high1) return 'Bullish MSS';
+      if(num(c0.close) < low1) return 'Bearish MSS';
+      return 'None';
+    }
+
+    function detectFVG(candles){
+      if(candles.length < 3) return null;
+      const a = candles[2], b = candles[1], c = candles[0];
+      const bullishGap = num(c.low) > num(a.high);
+      const bearishGap = num(c.high) < num(a.low);
+
+      if(bullishGap){
+        return {
+          type: 'Bullish FVG',
+          low: num(a.high),
+          high: num(c.low)
+        };
+      }
+      if(bearishGap){
+        return {
+          type: 'Bearish FVG',
+          low: num(c.high),
+          high: num(a.low)
+        };
+      }
+      return null;
+    }
+
+    function detectOB(candles){
+      for(let i=1;i<Math.min(candles.length - 1, 10);i++){
+        const curr = candles[i];
+        const next = candles[i-1];
+        const body = Math.abs(num(next.close) - num(next.open));
+        const range = num(next.high) - num(next.low);
+        if(range <= 0) continue;
+
+        if(num(curr.close) < num(curr.open) && num(next.close) > num(next.open) && body / range > 0.55){
+          return {
+            type:'Bullish OB',
+            low:num(curr.low),
+            high:num(curr.high)
+          };
+        }
+        if(num(curr.close) > num(curr.open) && num(next.close) < num(next.open) && body / range > 0.55){
+          return {
+            type:'Bearish OB',
+            low:num(curr.low),
+            high:num(curr.high)
+          };
+        }
+      }
+      return null;
+    }
+
+    function makeSignal({bias1h, m15, m5, price}){
+      const range = m5.range || 4;
+      let direction = 'WAIT';
+      let confidence = 50;
+      const reasons = [];
+
+      if(bias1h === 'Bullish'){ confidence += 10; reasons.push('1H bullish bias'); }
+      if(bias1h === 'Bearish'){ confidence += 10; reasons.push('1H bearish bias'); }
+
+      if(m15.mss === 'Bullish MSS'){ confidence += 10; reasons.push('15M bullish structure shift'); }
+      if(m15.mss === 'Bearish MSS'){ confidence += 10; reasons.push('15M bearish structure shift'); }
+
+      if(m5.sweep === 'Sell-side taken'){ confidence += 8; reasons.push('5M sell-side liquidity sweep'); }
+      if(m5.sweep === 'Buy-side taken'){ confidence += 8; reasons.push('5M buy-side liquidity sweep'); }
+
+      if(m5.fvg){ confidence += 8; reasons.push(m5.fvg.type); }
+      if(m5.ob){ confidence += 8; reasons.push(m5.ob.type); }
+
+      if(
+        bias1h === 'Bullish' &&
+        (m15.mss === 'Bullish MSS' || m15.mss === 'None') &&
+        (m5.sweep === 'Sell-side taken' || m5.fvg?.type === 'Bullish FVG' || m5.ob?.type === 'Bullish OB')
+      ){
+        direction = 'BUY';
+      }
+
+      if(
+        bias1h === 'Bearish' &&
+        (m15.mss === 'Bearish MSS' || m15.mss === 'None') &&
+        (m5.sweep === 'Buy-side taken' || m5.fvg?.type === 'Bearish FVG' || m5.ob?.type === 'Bearish OB')
+      ){
+        direction = 'SELL';
+      }
+
+      if(direction === 'WAIT'){
+        confidence = Math.min(confidence, 68);
+      } else {
+        confidence = Math.min(confidence + 12, 92);
+      }
+
+      let entry = price;
+      let sl, tp1, tp2;
+
+      if(direction === 'BUY'){
+        const zoneLow = Math.min(
+          m5.fvg ? m5.fvg.low : price - range * 0.4,
+          m5.ob ? m5.ob.low : price - range * 0.5
+        );
+        entry = price;
+        sl = zoneLow - range * 0.35;
+        tp1 = entry + (entry - sl) * 1.5;
+        tp2 = entry + (entry - sl) * 2.5;
+      } else if(direction === 'SELL'){
+        const zoneHigh = Math.max(
+          m5.fvg ? m5.fvg.high : price + range * 0.4,
+          m5.ob ? m5.ob.high : price + range * 0.5
+        );
+        entry = price;
+        sl = zoneHigh + range * 0.35;
+        tp1 = entry - (sl - entry) * 1.5;
+        tp2 = entry - (sl - entry) * 2.5;
+      }
+
+      const setup = direction === 'WAIT'
+        ? 'No A-grade setup'
+        : [
+            m5.sweep !== 'None' ? 'Liquidity sweep' : null,
+            m15.mss !== 'None' ? 'MSS' : null,
+            m5.fvg ? 'FVG' : null,
+            m5.ob ? 'OB' : null
+          ].filter(Boolean).join(' + ');
+
+      return {
+        direction,
+        setup,
+        confidence,
+        entry,
+        sl,
+        tp1,
+        tp2,
+        reasons
+      };
+    }
+
+    function secondarySignals(primary, price){
+      const out = [];
+      if(primary.direction === 'BUY'){
+        out.push({
+          direction:'BUY',
+          setup:'Continuation buy',
+          confidence:Math.max(primary.confidence - 8, 55),
+          entry:price,
+          sl:primary.sl,
+          tp1:primary.tp1,
+          tp2:primary.tp2,
+          reasons:['Trend continuation idea', 'Use only if price respects pullback']
+        });
+      } else if(primary.direction === 'SELL'){
+        out.push({
+          direction:'SELL',
+          setup:'Continuation sell',
+          confidence:Math.max(primary.confidence - 8, 55),
+          entry:price,
+          sl:primary.sl,
+          tp1:primary.tp1,
+          tp2:primary.tp2,
+          reasons:['Trend continuation idea', 'Use only if price respects pullback']
+        });
+      } else {
+        out.push({
+          direction:'WAIT',
+          setup:'Stand aside',
+          confidence:58,
+          entry:null,
+          sl:null,
+          tp1:null,
+          tp2:null,
+          reasons:['No clean confluence yet', 'Wait for sweep + MSS + retest']
+        });
+      }
+      return out;
+    }
+
+    function signalClass(dir){
+      if(dir === 'BUY') return 'buy';
+      if(dir === 'SELL') return 'sell';
+      return 'wait';
+    }
+
+    function renderSignals(list){
+      signalsEl.innerHTML = '';
+      signalCountEl.textContent = list.length;
+
+      if(!list.length){
+        signalsEl.innerHTML = '<div class="card"><div class="reason">No signals yet. Add your API key and tap Refresh Signals.</div></div>';
+        return;
+      }
+
+      list.forEach(sig => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="tag ${signalClass(sig.direction)}">${sig.direction}</div>
+          <div class="title">${sig.setup}</div>
+          <div class="reason">${sig.reasons.join(' • ')}</div>
+          <div class="meta">
+            <div class="mini"><div class="k">Confidence</div><div class="v">${sig.confidence}%</div></div>
+            <div class="mini"><div class="k">Entry</div><div class="v">${sig.entry ? formatPrice(sig.entry) : '—'}</div></div>
+            <div class="mini"><div class="k">Stop Loss</div><div class="v">${sig.sl ? formatPrice(sig.sl) : '—'}</div></div>
+            <div class="mini"><div class="k">TP1</div><div class="v">${sig.tp1 ? formatPrice(sig.tp1) : '—'}</div></div>
+            <div class="mini"><div class="k">TP2</div><div class="v">${sig.tp2 ? formatPrice(sig.tp2) : '—'}</div></div>
+            <div class="mini"><div class="k">Mode</div><div class="v">${sig.direction === 'WAIT' ? 'Wait' : 'Balanced'}</div></div>
+          </div>
+        `;
+        signalsEl.appendChild(card);
+      });
+
+      bestSetupEl.textContent = list[0]?.setup || '—';
+    }
+
+    function maybeNotify(primary){
+      const fingerprint = JSON.stringify({
+        d: primary.direction,
+        s: primary.setup,
+        e: primary.entry ? primary.entry.toFixed(2) : null,
+        c: primary.confidence
+      });
+
+      if(fingerprint !== lastSignalFingerprint && primary.direction !== 'WAIT'){
+        lastSignalFingerprint = fingerprint;
+        if(Notification.permission === 'granted'){
+          new Notification(`XAUUSD ${primary.direction}`, {
+            body: `${primary.setup} | Entry ${formatPrice(primary.entry)} | SL ${formatPrice(primary.sl)} | TP1 ${formatPrice(primary.tp1)}`
+          });
+        }
+      }
+    }
+
+    async function fetchSignals(){
+      try{
+        setStatus('Loading candles...');
+        const [h1, m15, m5] = await Promise.all([
+          fetchTF('1h'),
+          fetchTF('15min'),
+          fetchTF('5min')
+        ]);
+
+        const price = num(m5[0].close);
+        const bias1h = analyzeBias(h1);
+        const m15State = {
+          mss: detectMSS(m15)
+        };
+        const m5State = {
+          sweep: detectSweep(m5),
+          mss: detectMSS(m5),
+          fvg: detectFVG(m5),
+          ob: detectOB(m5),
+          range: averageRange(m5, 12)
+        };
+
+        livePriceEl.textContent = formatPrice(price);
+        bias1hEl.textContent = bias1h;
+
+        const primary = makeSignal({bias1h, m15:m15State, m5:m5State, price});
+        const other = secondarySignals(primary, price);
+        const allSignals = [primary, ...other];
+
+        renderSignals(allSignals);
+        maybeNotify(primary);
+        setStatus(`Updated ${new Date().toLocaleTimeString()}`);
+      } catch(err){
+        setStatus(`Error: ${err.message}`);
+        signalsEl.innerHTML = `<div class="card"><div class="reason">${err.message}</div><div class="tiny">Check your Twelve Data API key and refresh again.</div></div>`;
+      }
+    }
+
+    function startAutoRefresh(){
+      if(autoTimer) clearInterval(autoTimer);
+      if(countdownTimer) clearInterval(countdownTimer);
+
+      const ms = Number(refreshSelect.value || 60000);
+      secondsLeft = Math.floor(ms / 1000);
+      countdownEl.textContent = `${secondsLeft}s`;
+
+      autoTimer = setInterval(() => {
+        fetchSignals();
+        secondsLeft = Math.floor(ms / 1000);
+      }, ms);
+
+      countdownTimer = setInterval(() => {
+        secondsLeft -= 1;
+        if(secondsLeft <= 0) secondsLeft = Math.floor(ms / 1000);
+        countdownEl.textContent = `${secondsLeft}s`;
+      }, 1000);
+    }
+
+    document.getElementById('saveBtn').addEventListener('click', saveSettings);
+    document.getElementById('refreshBtn').addEventListener('click', fetchSignals);
+    document.getElementById('notifyBtn').addEventListener('click', async () => {
+      if(!('Notification' in window)){
+        alert('This browser does not support notifications.');
+        return;
+      }
+      const perm = await Notification.requestPermission();
+      alertModeEl.textContent = perm === 'granted' ? 'Browser On' : 'Off';
+      setStatus(perm === 'granted' ? 'Browser alerts enabled' : 'Alerts not enabled');
+    });
+    refreshSelect.addEventListener('change', () => {
+      localStorage.setItem('xau_refresh_ms', refreshSelect.value);
+      startAutoRefresh();
+    });
+
+    loadSettings();
+    startAutoRefresh();
+    if(apiKeyInput.value.trim()){
+      fetchSignals();
+    } else {
+      signalsEl.innerHTML = '<div class="card"><div class="reason">Paste your Twelve Data API key, tap Save API Key, then tap Refresh Signals.</div></div>';
+    }
+  </script>
+</body>
+</html>
