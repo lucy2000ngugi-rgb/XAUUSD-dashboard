@@ -1,13 +1,87 @@
-<script>
-const AUTO_REFRESH_INTERVAL = 60000; // 60 seconds
-
-function autoRefresh() {
-    console.log("Auto refreshing signals...");
-    if (typeof fetchSignals === "function") {
-        fetchSignals();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>XAUUSD Signal Hub</title>
+  <meta name="theme-color" content="#0b1020" />
+  <style>
+    :root{
+      --bg:#08101f;
+      --panel:#101a33;
+      --panel2:#152244;
+      --text:#eef3ff;
+      --muted:#aab6d6;
+      --line:rgba(255,255,255,.08);
+      --buy:#18c37e;
+      --sell:#ff5d6c;
+      --wait:#f4b740;
+      --accent:#6ea8ff;
     }
-}
-
-// Start auto refresh loop
-setInterval(autoRefresh, AUTO_REFRESH_INTERVAL);
-</script>
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:radial-gradient(circle at top, #16285f 0%, var(--bg) 45%);
+      color:var(--text);
+    }
+    .wrap{
+      max-width:860px;
+      margin:0 auto;
+      padding:16px;
+    }
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--line);
+      border-radius:24px;
+      padding:18px;
+      box-shadow:0 12px 40px rgba(0,0,0,.28);
+      backdrop-filter: blur(10px);
+    }
+    h1{
+      margin:0 0 8px;
+      font-size:34px;
+      line-height:1.05;
+    }
+    .sub{
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.5;
+      margin-bottom:18px;
+    }
+    .status{
+      font-size:18px;
+      margin:8px 0 16px;
+      color:#d7def5;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:14px;
+    }
+    .stat{
+      background:rgba(255,255,255,.04);
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:16px;
+      min-height:92px;
+    }
+    .label{
+      color:var(--muted);
+      font-size:14px;
+      margin-bottom:8px;
+    }
+    .value{
+      font-size:18px;
+      font-weight:700;
+    }
+    .controls{
+      margin-top:18px;
+      display:grid;
+      gap:12px;
+    }
+    input, select, button{
+      width:100%;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#0b153
