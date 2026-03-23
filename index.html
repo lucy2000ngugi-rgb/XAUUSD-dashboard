@@ -18,6 +18,7 @@
       --sell:#ff5d6c;
       --wait:#f4b740;
       --accent:#6ea8ff;
+      --aplus:#ffd76a;
     }
     *{box-sizing:border-box}
     body{
@@ -66,6 +67,10 @@
       border-radius:20px;
       padding:16px;
       min-height:92px;
+    }
+    .stat.aplus{
+      border:1px solid rgba(255,215,106,.35);
+      background:linear-gradient(180deg, rgba(255,215,106,.10), rgba(255,215,106,.04));
     }
     .label{
       color:var(--muted);
@@ -117,6 +122,11 @@
       background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
       padding:16px;
     }
+    .card.aplus{
+      border:1px solid rgba(255,215,106,.40);
+      box-shadow:0 0 0 1px rgba(255,215,106,.12) inset;
+      background:linear-gradient(180deg, rgba(255,215,106,.10), rgba(255,255,255,.03));
+    }
     .tag{
       display:inline-block;
       padding:8px 12px;
@@ -129,6 +139,16 @@
     .buy{background:rgba(24,195,126,.14); color:#8df0c2; border:1px solid rgba(24,195,126,.35)}
     .sell{background:rgba(255,93,108,.14); color:#ffadb6; border:1px solid rgba(255,93,108,.35)}
     .wait{background:rgba(244,183,64,.14); color:#ffd98a; border:1px solid rgba(244,183,64,.35)}
+    .aplus-badge{
+      display:inline-block;
+      margin-left:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:800;
+      color:#1d1600;
+      background:var(--aplus);
+    }
     .title{
       font-size:20px;
       font-weight:800;
@@ -160,7 +180,8 @@
       text-align:center;
     }
     .tiny{
-      font-size:12px;color:var(--muted)
+      font-size:12px;
+      color:var(--muted)
     }
     @media (max-width:640px){
       h1{font-size:28px}
@@ -174,7 +195,7 @@
       <h1>XAUUSD Signal Hub</h1>
       <div class="sub">
         Mobile-first XAUUSD smart-money panel using 1H bias, 15M structure, and 5M execution.
-        Includes entries, stop loss, targets, confidence, and 60-second auto-refresh.
+        Includes A+ setup slot, entries, stop loss, targets, confidence, and 60-second auto-refresh.
       </div>
 
       <div class="status" id="statusText">Ready</div>
@@ -187,6 +208,10 @@
         <div class="stat">
           <div class="label">1H Bias</div>
           <div class="value" id="bias1h">—</div>
+        </div>
+        <div class="stat aplus">
+          <div class="label">A+ Setup</div>
+          <div class="value" id="aPlusSetup">No A+ setup</div>
         </div>
         <div class="stat">
           <div class="label">Best Setup</div>
@@ -243,6 +268,7 @@
     const statusText = document.getElementById('statusText');
     const livePriceEl = document.getElementById('livePrice');
     const bias1hEl = document.getElementById('bias1h');
+    const aPlusSetupEl = document.getElementById('aPlusSetup');
     const bestSetupEl = document.getElementById('bestSetup');
     const signalCountEl = document.getElementById('signalCount');
     const alertModeEl = document.getElementById('alertMode');
@@ -256,7 +282,9 @@
 
     apiKeyInput.value = localStorage.getItem('xau_api_key') || '';
 
-    function setStatus(msg){ statusText.textContent = msg; }
+    function setStatus(msg){
+      statusText.textContent = msg;
+    }
 
     function saveSettings(){
       localStorage.setItem('xau_api_key', apiKeyInput.value.trim());
@@ -273,7 +301,7 @@
     function ema(values, period){
       const k = 2 / (period + 1);
       let result = values[0];
-      for(let i=1;i<values.length;i++){
+      for(let i = 1; i < values.length; i++){
         result = values[i] * k + result * (1 - k);
       }
       return result;
@@ -288,7 +316,7 @@
       return v.toFixed(2);
     }
 
-    function averageRange(candles, n=10){
+    function averageRange(candles, n = 10){
       const slice = candles.slice(0, n);
       if(!slice.length) return 0;
       const total = slice.reduce((sum, c) => sum + (num(c.high) - num(c.low)), 0);
@@ -344,7 +372,7 @@
 
     function detectFVG(candles){
       if(candles.length < 3) return null;
-      const a = candles[2], b = candles[1], c = candles[0];
+      const a = candles[2], c = candles[0];
       const bullishGap = num(c.low) > num(a.high);
       const bearishGap = num(c.high) < num(a.low);
 
@@ -366,9 +394,9 @@
     }
 
     function detectOB(candles){
-      for(let i=1;i<Math.min(candles.length - 1, 10);i++){
+      for(let i = 1; i < Math.min(candles.length - 1, 10); i++){
         const curr = candles[i];
-        const next = candles[i-1];
+        const next = candles[i - 1];
         const body = Math.abs(num(next.close) - num(next.open));
         const range = num(next.high) - num(next.low);
         if(range <= 0) continue;
@@ -397,17 +425,41 @@
       let confidence = 50;
       const reasons = [];
 
-      if(bias1h === 'Bullish'){ confidence += 10; reasons.push('1H bullish bias'); }
-      if(bias1h === 'Bearish'){ confidence += 10; reasons.push('1H bearish bias'); }
+      if(bias1h === 'Bullish'){
+        confidence += 10;
+        reasons.push('1H bullish bias');
+      }
+      if(bias1h === 'Bearish'){
+        confidence += 10;
+        reasons.push('1H bearish bias');
+      }
 
-      if(m15.mss === 'Bullish MSS'){ confidence += 10; reasons.push('15M bullish structure shift'); }
-      if(m15.mss === 'Bearish MSS'){ confidence += 10; reasons.push('15M bearish structure shift'); }
+      if(m15.mss === 'Bullish MSS'){
+        confidence += 10;
+        reasons.push('15M bullish structure shift');
+      }
+      if(m15.mss === 'Bearish MSS'){
+        confidence += 10;
+        reasons.push('15M bearish structure shift');
+      }
 
-      if(m5.sweep === 'Sell-side taken'){ confidence += 8; reasons.push('5M sell-side liquidity sweep'); }
-      if(m5.sweep === 'Buy-side taken'){ confidence += 8; reasons.push('5M buy-side liquidity sweep'); }
+      if(m5.sweep === 'Sell-side taken'){
+        confidence += 8;
+        reasons.push('5M sell-side liquidity sweep');
+      }
+      if(m5.sweep === 'Buy-side taken'){
+        confidence += 8;
+        reasons.push('5M buy-side liquidity sweep');
+      }
 
-      if(m5.fvg){ confidence += 8; reasons.push(m5.fvg.type); }
-      if(m5.ob){ confidence += 8; reasons.push(m5.ob.type); }
+      if(m5.fvg){
+        confidence += 8;
+        reasons.push(m5.fvg.type);
+      }
+      if(m5.ob){
+        confidence += 8;
+        reasons.push(m5.ob.type);
+      }
 
       if(
         bias1h === 'Bullish' &&
@@ -455,13 +507,20 @@
       }
 
       const setup = direction === 'WAIT'
-        ? 'No A-grade setup'
+        ? 'No clean setup'
         : [
             m5.sweep !== 'None' ? 'Liquidity sweep' : null,
             m15.mss !== 'None' ? 'MSS' : null,
             m5.fvg ? 'FVG' : null,
             m5.ob ? 'OB' : null
           ].filter(Boolean).join(' + ');
+
+      const isAPlus =
+        direction !== 'WAIT' &&
+        confidence >= 80 &&
+        m15.mss !== 'None' &&
+        m5.sweep !== 'None' &&
+        (m5.fvg || m5.ob);
 
       return {
         direction,
@@ -471,12 +530,14 @@
         sl,
         tp1,
         tp2,
-        reasons
+        reasons,
+        isAPlus
       };
     }
 
     function secondarySignals(primary, price){
       const out = [];
+
       if(primary.direction === 'BUY'){
         out.push({
           direction:'BUY',
@@ -486,7 +547,8 @@
           sl:primary.sl,
           tp1:primary.tp1,
           tp2:primary.tp2,
-          reasons:['Trend continuation idea', 'Use only if price respects pullback']
+          reasons:['Trend continuation idea', 'Use only if price respects pullback'],
+          isAPlus:false
         });
       } else if(primary.direction === 'SELL'){
         out.push({
@@ -497,7 +559,8 @@
           sl:primary.sl,
           tp1:primary.tp1,
           tp2:primary.tp2,
-          reasons:['Trend continuation idea', 'Use only if price respects pullback']
+          reasons:['Trend continuation idea', 'Use only if price respects pullback'],
+          isAPlus:false
         });
       } else {
         out.push({
@@ -508,9 +571,11 @@
           sl:null,
           tp1:null,
           tp2:null,
-          reasons:['No clean confluence yet', 'Wait for sweep + MSS + retest']
+          reasons:['No clean confluence yet', 'Wait for sweep + MSS + retest'],
+          isAPlus:false
         });
       }
+
       return out;
     }
 
@@ -526,14 +591,33 @@
 
       if(!list.length){
         signalsEl.innerHTML = '<div class="card"><div class="reason">No signals yet. Add your API key and tap Refresh Signals.</div></div>';
+        bestSetupEl.textContent = '—';
+        aPlusSetupEl.textContent = 'No A+ setup';
         return;
       }
 
-      list.forEach(sig => {
+      const aPlusSignal = list.find(s => s.isAPlus);
+
+      if(aPlusSignal){
+        aPlusSetupEl.textContent = `${aPlusSignal.direction} (${aPlusSignal.confidence}%)`;
+      } else {
+        aPlusSetupEl.textContent = 'No A+ setup';
+      }
+
+      bestSetupEl.textContent = list[0]?.setup || '—';
+
+      const ordered = aPlusSignal
+        ? [aPlusSignal, ...list.filter(s => s !== aPlusSignal)]
+        : list;
+
+      ordered.forEach(sig => {
         const card = document.createElement('div');
-        card.className = 'card';
+        card.className = `card ${sig.isAPlus ? 'aplus' : ''}`;
         card.innerHTML = `
-          <div class="tag ${signalClass(sig.direction)}">${sig.direction}</div>
+          <div>
+            <span class="tag ${signalClass(sig.direction)}">${sig.direction}</span>
+            ${sig.isAPlus ? '<span class="aplus-badge">A+ Setup</span>' : ''}
+          </div>
           <div class="title">${sig.setup}</div>
           <div class="reason">${sig.reasons.join(' • ')}</div>
           <div class="meta">
@@ -542,13 +626,11 @@
             <div class="mini"><div class="k">Stop Loss</div><div class="v">${sig.sl ? formatPrice(sig.sl) : '—'}</div></div>
             <div class="mini"><div class="k">TP1</div><div class="v">${sig.tp1 ? formatPrice(sig.tp1) : '—'}</div></div>
             <div class="mini"><div class="k">TP2</div><div class="v">${sig.tp2 ? formatPrice(sig.tp2) : '—'}</div></div>
-            <div class="mini"><div class="k">Mode</div><div class="v">${sig.direction === 'WAIT' ? 'Wait' : 'Balanced'}</div></div>
+            <div class="mini"><div class="k">Mode</div><div class="v">${sig.isAPlus ? 'A+' : (sig.direction === 'WAIT' ? 'Wait' : 'Balanced')}</div></div>
           </div>
         `;
         signalsEl.appendChild(card);
       });
-
-      bestSetupEl.textContent = list[0]?.setup || '—';
     }
 
     function maybeNotify(primary){
@@ -580,9 +662,11 @@
 
         const price = num(m5[0].close);
         const bias1h = analyzeBias(h1);
+
         const m15State = {
           mss: detectMSS(m15)
         };
+
         const m5State = {
           sweep: detectSweep(m5),
           mss: detectMSS(m5),
@@ -596,15 +680,31 @@
 
         const primary = makeSignal({bias1h, m15:m15State, m5:m5State, price});
         const other = secondarySignals(primary, price);
-        const allSignals = [primary, ...other];
 
+        const allSignals = aPlusCandidate(primary, other);
         renderSignals(allSignals);
         maybeNotify(primary);
+
         setStatus(`Updated ${new Date().toLocaleTimeString()}`);
       } catch(err){
         setStatus(`Error: ${err.message}`);
         signalsEl.innerHTML = `<div class="card"><div class="reason">${err.message}</div><div class="tiny">Check your Twelve Data API key and refresh again.</div></div>`;
+        aPlusSetupEl.textContent = 'No A+ setup';
       }
+    }
+
+    function aPlusCandidate(primary, others){
+      const list = [];
+
+      if(primary.isAPlus){
+        list.push({
+          ...primary,
+          setup: `A+ ${primary.setup}`
+        });
+      }
+
+      list.push(primary, ...others);
+      return list;
     }
 
     function startAutoRefresh(){
@@ -629,6 +729,7 @@
 
     document.getElementById('saveBtn').addEventListener('click', saveSettings);
     document.getElementById('refreshBtn').addEventListener('click', fetchSignals);
+
     document.getElementById('notifyBtn').addEventListener('click', async () => {
       if(!('Notification' in window)){
         alert('This browser does not support notifications.');
@@ -638,6 +739,7 @@
       alertModeEl.textContent = perm === 'granted' ? 'Browser On' : 'Off';
       setStatus(perm === 'granted' ? 'Browser alerts enabled' : 'Alerts not enabled');
     });
+
     refreshSelect.addEventListener('change', () => {
       localStorage.setItem('xau_refresh_ms', refreshSelect.value);
       startAutoRefresh();
@@ -645,6 +747,7 @@
 
     loadSettings();
     startAutoRefresh();
+
     if(apiKeyInput.value.trim()){
       fetchSignals();
     } else {
